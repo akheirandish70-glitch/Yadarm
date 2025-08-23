@@ -168,3 +168,217 @@ export default function MinimalNotesApp() {
                 <div className="text-sm font-medium">یادداشت‌ها</div>
                 <div className="flex items-center gap-2 text-xs text-neutral-500"><Smartphone className="h-4 w-4" /> موبایل <MonitorSmartphone className="h-4 w-4" /> دسکتاپ</div>
               </div>
+              <div className={`${dense ? "p-2" : "p-4"}`}>
+                {view === "cards" && (<CardView notes={visibleNotes} tagMap={tagMap} dense={dense} onRemove={removeNote} />)}
+                {view === "list" && (<ListView notes={visibleNotes} tagMap={tagMap} dense={dense} onRemove={removeNote} />)}
+                {view === "table" && (<TableView notes={visibleNotes} tagMap={tagMap} onRemove={removeNote} />)}
+                {visibleNotes.length === 0 && (<EmptyState />)}
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* TAGS TAB */}
+        {tab === "tags" && (
+          <section className="bg-white rounded-2xl border shadow-sm p-3">
+            <div className="flex items-center gap-2 mb-2"><Tag className="h-4 w-4" /><span className="text-sm font-medium">مدیریت تگ‌ها</span></div>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {tags.map(t => (
+                <div key={t.id} className="flex items-center gap-2 border rounded-xl p-2 justify-between">
+                  <div className="flex items-center gap-2"><ColorDot color={t.color} /><span className="text-sm" title={t.name}>{t.name}</span></div>
+                  <input type="color" value={t.color} onChange={e=>updateTagColor(t.id, e.target.value)} className="h-7 w-10 p-0 border rounded" title="انتخاب رنگ" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t">
+        <div className="mx-auto max-w-6xl px-2 py-2 grid grid-cols-3 gap-2">
+          <NavBtn active={tab === "notes"} onClick={()=>setTab("notes")} icon={<StickyNote className="h-5 w-5" />} label="یادداشت‌ها" />
+          <NavBtn active={tab === "add"} onClick={()=>setTab("add")} icon={<Plus className="h-5 w-5" />} label="یادداشت جدید" />
+          <NavBtn active={tab === "tags"} onClick={()=>setTab("tags")} icon={<Settings className="h-5 w-5" />} label="تگ‌ها" />
+        </div>
+      </nav>
+
+      <footer className="py-16 text-center text-xs text-neutral-400">ساخته‌شده با React + Tailwind — ذخیره‌سازی محلی مرورگر</footer>
+    </div>
+  );
+}
+
+function ViewToggle({ view, setView }: { view: "cards"|"list"|"table"; setView: (v: any)=>void }) {
+  const opts = [
+    { id: "cards", label: "کارت", icon: <LayoutGrid className="h-4 w-4" /> },
+    { id: "list", label: "لیست", icon: <List className="h-4 w-4" /> },
+    { id: "table", label: "جدول", icon: <TableIcon className="h-4 w-4" /> },
+  ];
+  return (
+    <div className="bg-white border rounded-xl p-1 flex items-center shadow-sm">
+      {opts.map(o => (
+        <button key={o.id} className={`px-3 h-9 rounded-lg text-sm inline-flex items-center gap-1 ${view === o.id ? "bg-neutral-900 text-white" : "hover:bg-neutral-100"}`} onClick={() => setView(o.id)}>
+          {o.icon}{o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function QuickTags({ tags, selectedIds, onToggle, onAdd }:{
+  tags: TagType[]; selectedIds: string[]; onToggle: (id: string)=>void; onAdd: (name: string, color: string)=>void;
+}) {
+  const [newTag, setNewTag] = useState("");
+  const [color, setColor] = useState(PALETTE[0]);
+  return (
+    <div className="flex flex-wrap items-center gap-2 justify-end">
+      {tags.map(t => (
+        <button key={t.id} onClick={() => onToggle(t.id)} className={`px-2 h-8 rounded-lg border text-sm inline-flex items-center gap-2 ${selectedIds.includes(t.id) ? "ring-2 ring-offset-1 ring-neutral-900" : ""}`} style={{ borderColor: t.color }} title={`تگ: ${t.name}`}>
+          <ColorDot color={t.color} />{t.name}
+        </button>
+      ))}
+      <div className="flex items-center gap-2 border rounded-lg p-1">
+        <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { onAdd(newTag, color); setNewTag(""); } }} placeholder="تگ جدید" className="h-8 px-2 w-24 focus:outline-none text-right" />
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            {PALETTE.slice(0, 6).map(c => (<button key={c} className="h-5 w-5 rounded-full border" style={{ backgroundColor: c }} title={c} onClick={() => setColor(c)} />))}
+          </div>
+          <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-8 w-8 p-0 rounded" />
+          <button onClick={() => { onAdd(newTag, color); setNewTag(""); }} className="h-8 px-2 rounded-md bg-neutral-900 text-white text-sm" title="افزودن تگ">افزودن</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CardView({ notes, tagMap, dense, onRemove }:{ notes: NoteType[]; tagMap: Record<string, TagType>; dense: boolean; onRemove: (id: string)=>void; }) {
+  const cols = dense ? "sm:grid-cols-3 lg:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3";
+  return (
+    <div className={`grid grid-cols-1 ${cols} gap-3`}>
+      {notes.map(n => (
+        <div key={n.id} className="rounded-2xl border shadow-sm p-3 bg-white">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-xs text-neutral-400">{formatDate(n.createdAt)}</span>
+            <button className="text-neutral-400 hover:text-red-600" onClick={() => onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
+          </div>
+          <p className={`mt-2 whitespace-pre-wrap ${dense ? "text-sm" : "text-base"} text-right`}>{n.text}</p>
+          <div className="mt-3 flex flex-wrap gap-2 justify-end">
+            {n.tagIds.map(id => tagMap[id]).filter(Boolean).map(t => (
+              <span key={t.id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs" style={{ borderColor: t.color }}><ColorDot color={t.color} />{t.name}</span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListView({ notes, tagMap, dense, onRemove }:{ notes: NoteType[]; tagMap: Record<string, TagType>; dense: boolean; onRemove: (id: string)=>void; }) {
+  return (
+    <div className="divide-y">
+      {notes.map(n => (
+        <div key={n.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 py-3 ${dense ? "text-sm" : "text-base"}`}>
+          <div className="sm:w-40 text-xs text-neutral-400">{formatDate(n.createdAt)}</div>
+          <div className="flex-1 whitespace-pre-wrap text-right">{n.text}</div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            {n.tagIds.map(id => tagMap[id]).filter(Boolean).map(t => (
+              <span key={t.id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs" style={{ borderColor: t.color }}><ColorDot color={t.color} />{t.name}</span>
+            ))}
+          </div>
+          <button className="text-neutral-400 hover:text-red-600 ml-auto" onClick={() => onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TableView({ notes, tagMap, onRemove }:{ notes: NoteType[]; tagMap: Record<string, TagType>; onRemove: (id: string)=>void; }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr className="text-left bg-neutral-50">
+            <th className="p-2">تاریخ</th>
+            <th className="p-2">متن</th>
+            <th className="p-2">تگ‌ها</th>
+            <th className="p-2 w-12"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {notes.map(n => (
+            <tr key={n.id} className="border-t">
+              <td className="p-2 text-neutral-500 whitespace-nowrap">{formatDate(n.createdAt)}</td>
+              <td className="p-2 whitespace-pre-wrap text-right">{n.text}</td>
+              <td className="p-2">
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {n.tagIds.map(id => tagMap[id]).filter(Boolean).map(t => (
+                    <span key={t.id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs" style={{ borderColor: t.color }}><ColorDot color={t.color} />{t.name}</span>
+                  ))}
+                </div>
+              </td>
+              <td className="p-2 text-right"><button className="text-neutral-400 hover:text-red-600" onClick={() => onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="py-16 text-center text-neutral-400">
+      هنوز یادداشتی مطابق فیلترها وجود ندارد.
+      <div className="mt-2 text-xs">یک یادداشت جدید بسازید یا فیلترها را پاک کنید.</div>
+    </div>
+  );
+}
+
+function ColorDot({ color }:{ color: string }) {
+  return <span className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color }} />;
+}
+
+function NavBtn({ active, onClick, icon, label }:{ active: boolean; onClick: ()=>void; icon: React.ReactNode; label: string; }) {
+  return (
+    <button onClick={onClick} className={`h-12 rounded-xl border flex items-center justify-center gap-2 text-sm ${active ? "bg-neutral-900 text-white" : "bg-white hover:bg-neutral-50"}`}>
+      {icon}<span>{label}</span>
+    </button>
+  );
+}
+
+function EmojiPicker({ onPick }:{ onPick: (e: string)=>void; }) {
+  const [open, setOpen] = useState(false);
+  const EMOJIS = ["😀","😄","😁","😊","😍","🤩","😎","🤔","😇","😴","😅","😢","🔥","✨","✅","📌","📝","⚡","🚀","💡"];
+  return (
+    <div className="relative">
+      <button onClick={()=>setOpen(o=>!o)} className="px-2 h-10 rounded-xl border inline-flex items-center gap-2"><Smile className="h-4 w-4"/> ایموجی</button>
+      {open && (
+        <div className="absolute bottom-full mb-2 right-0 bg-white border rounded-xl shadow p-2 grid grid-cols-10 gap-1 z-10">
+          {EMOJIS.map(e => (<button key={e} className="h-8 w-8 rounded hover:bg-neutral-100 text-lg" onClick={()=>{ onPick(e); setOpen(false); }}>{e}</button>))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function insertAtCursor(ref: React.RefObject<HTMLTextAreaElement>, text: string, setValue: (v: string)=>void) {
+  const el = ref.current; if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? el.value.length;
+  const value = el.value;
+  const next = value.slice(0, start) + text + value.slice(end);
+  setValue(next);
+  requestAnimationFrame(() => {
+    el.focus();
+    const pos = start + text.length;
+    el.setSelectionRange(pos, pos);
+  });
+}
+
+function defaultTags(): TagType[] {
+  return [
+    { id: uid(), name: "ایده", color: "#3b82f6" },
+    { id: uid(), name: "کارها", color: "#10b981" },
+    { id: uid(), name: "شخصی", color: "#f59e0b" },
+  ];
+}
