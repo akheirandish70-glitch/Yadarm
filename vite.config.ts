@@ -26,3 +26,22 @@ export default defineConfig({
     })
   ]
 });
+import { VitePWA } from "vite-plugin-pwa";
+
+VitePWA({
+  registerType: "autoUpdate",
+  includeAssets: ["favicon.svg", "pwa-192.png", "pwa-512.png"],
+  workbox: {
+    globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+    runtimeCaching: [
+      {
+        urlPattern: ({url}) => url.pathname.startsWith("/fonts/"),
+        handler: "CacheFirst",
+        options: {
+          cacheName: "fonts",
+          expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 }
+        }
+      }
+    ]
+  }
+})
