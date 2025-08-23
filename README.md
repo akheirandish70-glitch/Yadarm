@@ -1,3 +1,3 @@
 # Yadarm
-React + Vite + Tailwind + optional Supabase sync + PIN lock.
-See project README from earlier message for SQL policies and Vercel envs.
+Vite + React + Tailwind + PWA. Entry is **/src/main.tsx** (note the leading slash in index.html).
+If Vercel fails to resolve, ensure file exists at *src/main.tsx* and project root points to repo root.

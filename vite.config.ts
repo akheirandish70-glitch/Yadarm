@@ -11,13 +11,6 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-        runtimeCaching: [
-          {
-            urlPattern: ({url}) => url.pathname.startsWith("/fonts/"),
-            handler: "CacheFirst",
-            options: { cacheName: "fonts", expiration: { maxEntries: 20, maxAgeSeconds: 31536000 } }
-          }
-        ]
       }
     }),
   ],
