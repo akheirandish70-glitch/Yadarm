@@ -3,19 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111827" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
     <title>Yadarm</title>
     <script>
-      // Apply saved theme ASAP to avoid flash
       try {
         const t = localStorage.getItem('mn_theme') || 'light';
-        if (t === 'dark' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+        const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const dark = t === 'dark' || (t === 'system' && prefers);
+        document.documentElement.classList.toggle('dark', dark);
       } catch {}
     </script>
   </head>
