@@ -464,12 +464,24 @@ function AuthScreen({ theme, setTheme }:{ theme:"light"|"dark"; setTheme:(t:"lig
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
 
   async function submit() {
-    if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert(error.message);
-    } else {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) alert(error.message);
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) alert(error.message);
+      } else {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) { alert(error.message); return; }
+        // If email confirmations are disabled, Supabase returns a session immediately.
+        // If not, try to sign in with password right away (works when confirmations are off).
+        if (!data.session) {
+          const { error: e2 } = await supabase.auth.signInWithPassword({ email, password });
+          if (e2) {
+            alert("ثبت‌نام انجام شد اما نیاز به تایید ایمیل دارد. برای ورود سریع، در Supabase گزینه تایید ایمیل را خاموش کنید یا SMTP تنظیم کنید.");
+          }
+        }
+      }
+    } catch (e:any) {
+      alert(e?.message || "خطای غیرمنتظره در ورود/ثبت‌نام");
     }
   }
 
