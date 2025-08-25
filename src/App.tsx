@@ -368,8 +368,7 @@ function ListView({ notes, tagMap, onRemove, onEdit, onCycleStatus }:{ notes: No
       {notes.map(n => (
         <div key={n.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 py-3`}>
           <div className="sm:w-40 text-xs text-neutral-400">{formatDate(n.created_at)}</div>
-          <div className="flex-1 text-right">{(n.text || "").split("
-")[0]}</div>
+          <div className="flex-1 text-right">{(n.text || '').split('\n')[0]}</div>
           <div className="flex items-center gap-2 ml-auto">
             <StatusBadge status={n.status} onClick={()=>onCycleStatus(n.id)} />
             <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={() => onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
