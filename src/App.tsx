@@ -105,6 +105,23 @@ export default function App() {
     const { data } = await supabase.from("tags").update({ color }).eq("id", id).select("*").single();
     if (data) setTags(prev => prev.map(t => t.id === id ? data : t));
   }
+
+  async function deleteTag(id: string) {
+    // Delete tag
+    await supabase.from("tags").delete().eq("id", id);
+    setTags(prev => prev.filter(t => t.id !== id));
+    // Remove tag from existing notes
+    const { data: affected } = await supabase.from("notes").select("id, tag_ids").contains("tag_ids", [id]);
+    if (affected && affected.length) {
+      for (const n of affected) {
+        const next = (n.tag_ids || []).filter((x: string) => x !== id);
+        await supabase.from("notes").update({ tag_ids: next }).eq("id", n.id);
+      }
+      // refresh notes in UI
+      const { data: notesData } = await supabase.from("notes").select("*").order("created_at", { ascending: false });
+      setNotes(notesData || []);
+    }
+  }
   function cycleStatus(s: StatusType): StatusType {
     const i = STATUS_ORDER.indexOf(s); return STATUS_ORDER[(i+1)%STATUS_ORDER.length];
   }
@@ -158,7 +175,7 @@ export default function App() {
                 <span className="text-sm sm:text-base font-medium">نوشتن یادداشت</span>
                 <kbd className="text-xs text-neutral-400">Ctrl/⌘ + Enter</kbd>
               </div>
-              <div className="relative">
+              <div>
                 <textarea
                   ref={textareaRef}
                   dir="rtl"
@@ -167,16 +184,15 @@ export default function App() {
                   value={draftText}
                   onChange={(e)=>setDraftText(e.target.value)}
                 />
-                <div className="absolute top-2 left-2">
-                  <EmojiPicker onPick={(emo)=>insertAtCursor(textareaRef, emo, setDraftText)} />
-                </div>
+              </div>
               </div>
               <div className="mt-3 grid gap-3">
                 <div>
                   <button onClick={()=>addNote()} className="w-full sm:w-auto h-11 px-4 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-sm inline-flex items-center gap-2"><Plus className="h-4 w-4" /> ثبت یادداشت</button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 justify-end">
+                <div className="flex flex-wrap items-center gap-2 justify-end w-full">
+                  <span className="text-sm text-neutral-600 dark:text-neutral-300 ml-2">تگ‌ها:</span>
                   {tags.map(t => (
                     <button key={t.id} onClick={() => setQuickTagIds(p => p.includes(t.id) ? p.filter(x=>x!==t.id) : [...p, t.id])} className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${quickTagIds.includes(t.id) ? "ring-2 ring-offset-1 ring-neutral-900 dark:ring-neutral-200" : ""}`} style={{ borderColor: t.color }}>
                       <ColorDot color={t.color} />{t.name}
@@ -184,12 +200,14 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 justify-end">
+                <div className="flex flex-wrap items-center gap-2 justify-end w-full">
+                  <span className="text-sm text-neutral-600 dark:text-neutral-300 ml-2">تگ‌ها:</span>
                   <input value={newTagName} onChange={e=>setNewTagName(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") addTag(newTagName, newTagColor); }} placeholder="تگ جدید" className="h-10 px-2 w-40 sm:w-56 focus:outline-none text-right rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900" />
                   <input type="color" value={newTagColor} onChange={e=>setNewTagColor(e.target.value)} className="h-10 w-10 p-0 rounded" title="انتخاب رنگ" />
                 </div>
 
-                <div className="flex items-center justify-start sm:justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-neutral-600 dark:text-neutral-300">وضعیت:</span>
                   <StatusSegment value={draftStatus} onChange={setDraftStatus} />
                 </div>
               </div>
@@ -263,6 +281,7 @@ export default function App() {
             tags={tags}
             onAddTag={addTag}
             onUpdateTagColor={updateTagColor}
+            onDeleteTag={deleteTag}
           />
         )}
       </main>
@@ -281,8 +300,8 @@ export default function App() {
       <div className="fixed inset-x-0 bottom-4 z-20 pointer-events-none">
         <nav className="pointer-events-auto mx-auto w-[min(calc(100%-32px),560px)]">
           <div className="rounded-[20px] shadow-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-2 grid grid-cols-3 gap-2 items-center justify-center mx-auto">
-            <NavBtn active={tab === "notes"} onClick={()=>setTab("notes")} icon={<StickyNote className="h-5 w-5" />} label="یادداشت‌ها" />
-            <NavBtn active={tab === "add"} onClick={()=>setTab("add")} icon={<Plus className="h-5 w-5" />} label="یادداشت جدید" />
+            <NavBtn active={tab === "notes"} onClick={()=>setTab("notes")} icon={<StickyNote className="h-5 w-5" />} label="دفترچه" />
+            <NavBtn active={tab === "add"} onClick={()=>setTab("add")} icon={<Plus className="h-5 w-5" />} label="بنویس" />
             <NavBtn active={tab === "settings"} onClick={()=>setTab("settings")} icon={<SettingsIcon className="h-5 w-5" />} label="تنظیمات" />
           </div>
         </nav>
@@ -350,7 +369,8 @@ function ListView({ notes, tagMap, onRemove, onEdit, onCycleStatus }:{ notes: No
       {notes.map(n => (
         <div key={n.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 py-3`}>
           <div className="sm:w-40 text-xs text-neutral-400">{formatDate(n.created_at)}</div>
-          <div className="flex-1 whitespace-pre-wrap text-right">{n.text}</div>
+          <div className="flex-1 text-right">{(n.text || "").split("
+")[0]}</div>
           <div className="flex items-center gap-2 ml-auto">
             <StatusBadge status={n.status} onClick={()=>onCycleStatus(n.id)} />
             <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={() => onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
