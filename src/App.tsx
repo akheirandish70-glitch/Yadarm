@@ -140,7 +140,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tab === "notes" && <ViewToggle view={view} setView={setView} />}
+            
             <button onClick={()=>setTheme(theme === "dark" ? "light" : "dark")} className="h-10 w-10 rounded-xl border grid place-items-center">
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -152,7 +152,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-3 sm:px-4 pb-28 pt-4 sm:pt-6 grid gap-4 sm:gap-6">
         {/* ADD TAB */}
         {tab === "add" && (
-          <section className="grid gap-3">
+          <section className="grid gap-3 max-w-3xl mx-auto">
             <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm sm:text-base font-medium">نوشتن یادداشت</span>
@@ -191,7 +191,7 @@ export default function App() {
         {/* NOTES TAB */}
         {tab === "notes" && (
           <>
-            <section className="grid gap-3">
+            <section className="grid gap-3 max-w-3xl mx-auto">
               <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-2"><Filter className="h-4 w-4" /><span className="text-sm font-medium">فیلتر و جستجو</span></div>
                 <div className="flex items-center gap-2">
@@ -199,7 +199,7 @@ export default function App() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                     <input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجو در متن (کلید / )" className="w-full pl-9 pr-3 h-11 focus:h-14 transition-all rounded-2xl border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 text-right bg-white dark:bg-neutral-900" />
                   </div>
-                  <div className="sm:hidden"><ViewToggle view={view} setView={setView} /></div>
+                  <div><ViewToggle view={view} setView={setView} /></div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-3 justify-between">
                   <div className="flex flex-wrap gap-2 justify-start">
@@ -228,7 +228,7 @@ export default function App() {
             <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm">
               <div className="p-3 sm:p-4 flex items-center justify-between">
                 <div className="text-sm sm:text-base font-medium">یادداشت‌ها</div>
-                <div className="hidden sm:block"><ViewToggle view={view} setView={setView} /></div>
+                
               </div>
               <div className="p-3 sm:p-4">
                 {view === "cards" && (<CardView notes={visibleNotes} tagMap={tagMap} onRemove={removeNote} onEdit={setEditing} onCycleStatus={(id)=>{
