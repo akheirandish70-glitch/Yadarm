@@ -152,21 +152,30 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-3 sm:px-4 pb-28 pt-4 sm:pt-6 grid gap-4 sm:gap-6">
         {/* ADD TAB */}
         {tab === "add" && (
-          <section className="grid gap-3 max-w-3xl mx-auto">
-            <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
+          <section className="grid gap-4 w-full max-w-6xl mx-auto">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4 w-full">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm sm:text-base font-medium">نوشتن یادداشت</span>
                 <kbd className="text-xs text-neutral-400">Ctrl/⌘ + Enter</kbd>
               </div>
-              <textarea
-                ref={textareaRef}
-                dir="rtl"
-                className="w-full resize-y rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 min-h-[140px] text-right bg-white dark:bg-neutral-900"
-                placeholder="متن یادداشت را بنویسید..."
-                value={draftText}
-                onChange={(e)=>setDraftText(e.target.value)}
-              />
-              <div className="mt-3 grid gap-2">
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  dir="rtl"
+                  className="w-full resize-y rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-10 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 min-h-[180px] text-right bg-white dark:bg-neutral-900"
+                  placeholder="متن یادداشت را بنویسید..."
+                  value={draftText}
+                  onChange={(e)=>setDraftText(e.target.value)}
+                />
+                <div className="absolute top-2 left-2">
+                  <EmojiPicker onPick={(emo)=>insertAtCursor(textareaRef, emo, setDraftText)} />
+                </div>
+              </div>
+              <div className="mt-3 grid gap-3">
+                <div>
+                  <button onClick={()=>addNote()} className="w-full sm:w-auto h-11 px-4 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-sm inline-flex items-center gap-2"><Plus className="h-4 w-4" /> ثبت یادداشت</button>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 justify-end">
                   {tags.map(t => (
                     <button key={t.id} onClick={() => setQuickTagIds(p => p.includes(t.id) ? p.filter(x=>x!==t.id) : [...p, t.id])} className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${quickTagIds.includes(t.id) ? "ring-2 ring-offset-1 ring-neutral-900 dark:ring-neutral-200" : ""}`} style={{ borderColor: t.color }}>
@@ -174,14 +183,14 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 justify-end">
-                  <input value={newTagName} onChange={e=>setNewTagName(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") addTag(newTagName, newTagColor); }} placeholder="تگ جدید" className="h-10 px-2 w-28 focus:outline-none text-right rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900" />
+
+                <div className="flex flex-wrap items-center gap-2 justify-end">
+                  <input value={newTagName} onChange={e=>setNewTagName(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") addTag(newTagName, newTagColor); }} placeholder="تگ جدید" className="h-10 px-2 w-40 sm:w-56 focus:outline-none text-right rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900" />
                   <input type="color" value={newTagColor} onChange={e=>setNewTagColor(e.target.value)} className="h-10 w-10 p-0 rounded" title="انتخاب رنگ" />
-                  <button onClick={()=>addNote()} className="h-10 px-3 rounded-xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-sm inline-flex items-center gap-2"><Plus className="h-4 w-4" /> ثبت یادداشت</button>
                 </div>
-                <div className="flex items-center gap-2 justify-between">
+
+                <div className="flex items-center justify-start sm:justify-between gap-2 flex-wrap">
                   <StatusSegment value={draftStatus} onChange={setDraftStatus} />
-                  <EmojiPicker onPick={(emo)=>insertAtCursor(textareaRef, emo, setDraftText)} />
                 </div>
               </div>
             </div>
@@ -191,8 +200,8 @@ export default function App() {
         {/* NOTES TAB */}
         {tab === "notes" && (
           <>
-            <section className="grid gap-3 max-w-3xl mx-auto">
-              <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
+            <section className="grid gap-4 w-full max-w-6xl mx-auto">
+              <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4 w-full">
                 <div className="flex items-center gap-2 mb-2"><Filter className="h-4 w-4" /><span className="text-sm font-medium">فیلتر و جستجو</span></div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -245,10 +254,16 @@ export default function App() {
 
         {/* SETTINGS TAB */}
         {tab === "settings" && (
-          <SettingsPanel onLogout={async()=>{ await supabase.auth.signOut(); }} onChangePassword={async(pw)=>{
-            await supabase.auth.updateUser({ password: pw });
-            alert("رمز عبور تغییر کرد.");
-          }} />
+          <SettingsPanel
+            onLogout={async()=>{ await supabase.auth.signOut(); }}
+            onChangePassword={async(pw)=>{
+              await supabase.auth.updateUser({ password: pw });
+              alert("رمز عبور تغییر کرد.");
+            }}
+            tags={tags}
+            onAddTag={addTag}
+            onUpdateTagColor={updateTagColor}
+          />
         )}
       </main>
 
@@ -417,7 +432,7 @@ function EditModal({ note, allTags, onClose, onSave }:{ note: NoteRow; allTags: 
           <div className="text-sm text-neutral-500">ویرایش یادداشت</div>
           <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"><X className="h-5 w-5"/></button>
         </div>
-        <div className="grid gap-3">
+        <div className="grid gap-4 w-full max-w-6xl mx-auto">
           <StatusSegment value={status} onChange={setStatus} />
           <textarea dir="rtl" className="w-full min-h-[140px] rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 text-right bg-white dark:bg-neutral-900" value={text} onChange={(e)=>setText(e.target.value)} />
           <div className="flex flex-wrap gap-2 justify-end">
