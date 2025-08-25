@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Tag, Trash2, LayoutGrid, List, Filter, X, Search, Smile, StickyNote, Settings as SettingsIcon, Pencil, Check, Moon, Sun } from "lucide-react";
+import { Plus, Tag, Trash2, LayoutGrid, List, Filter, X, Search, Smile, StickyNote, Settings as Settings, Pencil, Check, Moon, Sun } from "lucide-react";
 import { supabase } from "./lib.supabase";
 
 type StatusType = "action" | "plan" | "done";
@@ -185,7 +185,6 @@ export default function App() {
                   onChange={(e)=>setDraftText(e.target.value)}
                 />
               </div>
-              </div>
               <div className="mt-3 grid gap-3">
                 <div>
                   <button onClick={()=>addNote()} className="w-full sm:w-auto h-11 px-4 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-sm inline-flex items-center gap-2"><Plus className="h-4 w-4" /> ثبت یادداشت</button>
@@ -302,7 +301,7 @@ export default function App() {
           <div className="rounded-[20px] shadow-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 py-2 grid grid-cols-3 gap-2 items-center justify-center mx-auto">
             <NavBtn active={tab === "notes"} onClick={()=>setTab("notes")} icon={<StickyNote className="h-5 w-5" />} label="دفترچه" />
             <NavBtn active={tab === "add"} onClick={()=>setTab("add")} icon={<Plus className="h-5 w-5" />} label="بنویس" />
-            <NavBtn active={tab === "settings"} onClick={()=>setTab("settings")} icon={<SettingsIcon className="h-5 w-5" />} label="تنظیمات" />
+            <NavBtn active={tab === "settings"} onClick={()=>setTab("settings")} icon={<Settings className="h-5 w-5" />} label="تنظیمات" />
           </div>
         </nav>
       </div>
@@ -479,7 +478,7 @@ function SettingsPanel({ onLogout, onChangePassword }:{ onLogout: ()=>void; onCh
   const [pw1, setPw1] = useState(""); const [pw2, setPw2] = useState("");
   return (
     <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-4 grid gap-4 max-w-xl">
-      <div className="flex items-center gap-2"><SettingsIcon className="h-5 w-5" /><h2 className="text-base font-medium">تنظیمات</h2></div>
+      <div className="flex items-center gap-2"><Settings className="h-5 w-5" /><h2 className="text-base font-medium">تنظیمات</h2></div>
       <div className="grid gap-2">
         <label className="text-sm">تغییر رمز عبور</label>
         <input type="password" value={pw1} onChange={e=>setPw1(e.target.value)} placeholder="رمز جدید" className="h-11 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3" />
