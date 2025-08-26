@@ -419,7 +419,17 @@ function EditModal({ note, allTags, onClose, onSave }:{ note: NoteRow; allTags: 
   const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   return (
-   <div className="flex flex-wrap gap-2 justify-end">
+  <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="relative w-full sm:w-[560px] max-h-[90vh] overflow-auto bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-xl p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm text-neutral-500">ویرایش یادداشت</div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"><X className="h-5 w-5"/></button>
+        </div>
+        <div className="grid gap-3">
+          <StatusSegment value={status} onChange={setStatus} />
+          <textarea dir="rtl" className="w-full min-h-[140px] rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 text-right bg-white dark:bg-neutral-900" value={text} onChange={(e)=>setText(e.target.value)} />
+          <div className="flex flex-wrap gap-2 justify-end">
   {allTags.map((t) => {
     const active = selected.includes(t.id);
     return (
@@ -430,7 +440,7 @@ function EditModal({ note, allTags, onClose, onSave }:{ note: NoteRow; allTags: 
         }`}
         style={{ borderColor: t.color }}
       >
-        {/* دکمه انتخاب/عدم‌انتخاب تگ */}
+        {/* انتخاب/لغو تگ برای یادداشت */}
         <button
           type="button"
           onClick={() => toggle(t.id)}
@@ -441,7 +451,7 @@ function EditModal({ note, allTags, onClose, onSave }:{ note: NoteRow; allTags: 
           {t.name}
         </button>
 
-        {/* دکمه حذف تگ از یادداشت (وقتی تگ فعال است) */}
+        {/* حذف تگ از همین یادداشت وقتی فعال است */}
         {active && (
           <button
             type="button"
@@ -456,3 +466,18 @@ function EditModal({ note, allTags, onClose, onSave }:{ note: NoteRow; allTags: 
     );
   })}
 </div>
+
+            ))}>
+                <ColorDot color={t.color} />{t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="h-10 px-3 rounded-2xl border">انصراف</button>
+          <button onClick={()=>onSave({ text, status, tag_ids: selected })} className="h-10 px-4 rounded-2xl bg-neutral-900 text-white inline-flex items-center gap-2"><Check className="h-4 w-4"/> ذخیره</button>
+        </div>
+      </div>
+    </div>
+  );
+}
