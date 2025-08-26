@@ -1,259 +1,328 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Tag, Trash2, LayoutGrid, List, Filter, X, Search, Smile, StickyNote, Settings, Pencil, Check, Moon, Sun } from "lucide-react";
-import { supabase } from "./supabase";
-import { ChangePassword } from "./auth";
 
-type TagType = { id: string; name: string; color: string };
-type StatusType = "action" | "plan" | "done";
-type NoteRow = { id: string; text: string; tag_ids: string[]; created_at: string; status: StatusType };
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from './supabase';
+import Auth from './components/Auth';
+import type { Note, Tag, Status } from './types';
+import { Plus, Tag as TagIcon, Trash2, LayoutGrid, List, Filter, X, Search, Settings, Pencil, Check, LogOut, Moon, Sun } from "lucide-react";
 
-const STATUS_ORDER: StatusType[] = ["action","plan","done"];
-const STATUS_LABEL: Record<StatusType,string> = { action: "اکشن", plan: "پلن", done: "اتمام" };
+const STATUS_ORDER: Status[] = ['action','plan','done'];
+const STATUS_LABEL: Record<Status, string> = { action: 'اکشن', plan: 'پلن', done: 'اتمام' };
 
-function useTheme() {
-  const [theme, setTheme] = useState<"light"|"dark"|"system">(() => (localStorage.getItem('mn_theme') as any) || 'light');
-  useEffect(() => {
-    const root = document.documentElement;
-    const preferDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = theme === "dark" || (theme === "system" && preferDark);
-    root.classList.toggle("dark", isDark);
-    localStorage.setItem('mn_theme', theme);
-  }, [theme]);
-  return { theme, setTheme };
-}
+const uid = () => Math.random().toString(36).slice(2,10);
+const formatDate = (iso: string) => new Date(iso).toLocaleString('fa-IR');
 
-export default function App() {
-  const { theme, setTheme } = useTheme();
-  const [userId, setUserId] = useState<string | null>(null);
+export default function App(){
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [userId, setUserId] = useState<string|null>(null);
 
-  const [notes, setNotes] = useState<NoteRow[]>([]);
-  const [tags, setTags] = useState<TagType[]>([]);
-  const [view, setView] = useState<"cards"|"list">("cards");
-  const [query, setQuery] = useState("");
-  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
-  const [filterStatuses, setFilterStatuses] = useState<StatusType[]>([]);
-  const [tab, setTab] = useState<"notes"|"add"|"settings">("notes");
-
-  const [draftText, setDraftText] = useState("");
-  const [draftStatus, setDraftStatus] = useState<StatusType>("action");
-  const [quickTagIds, setQuickTagIds] = useState<string[]>([]);
-
-  const [editing, setEditing] = useState<NoteRow | null>(null);
-
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
-
-  // session user id
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      setUserId(data.user?.id ?? null);
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
+  useEffect(()=>{
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user.id ?? null);
+      setSessionChecked(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s)=>{
+      setUserId(s?.user?.id ?? null);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  },[]);
 
-  // load notes/tags
-  useEffect(() => {
-    if (!userId) return;
-    (async () => {
-      const { data: tagsData } = await supabase.from('tags').select('*').order('created_at', { ascending: false });
-      if (tagsData && tagsData.length) setTags(tagsData.map((t: any) => ({ id: t.id, name: t.name, color: t.color })));
-      else {
-        const def = defaultTags();
-        const { data: inserted } = await supabase.from('tags').insert(def.map(d => ({ ...d, user_id: userId }))).select('*');
-        if (inserted) setTags(inserted.map((t: any) => ({ id: t.id, name: t.name, color: t.color })));
-      }
-      const { data: notesData } = await supabase.from('notes').select('*').order('created_at', { ascending: false });
-      setNotes((notesData || []).map((n: any) => ({ id: n.id, text: n.text, tag_ids: n.tag_ids, created_at: n.created_at, status: n.status })));
-    })();
-  }, [userId]);
+  if(!sessionChecked) return null;
+  if(!userId) return <Auth />;
+  return <AppAuthed userId={userId} />;
+}
 
-  const tagMap = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags]);
-  const visibleNotes = useMemo(() => {
+function AppAuthed({ userId }:{ userId:string }){
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tab, setTab] = useState<'notes'|'add'|'settings'>('notes');
+  const [view, setView] = useState<'cards'|'list'>('cards');
+  const [query, setQuery] = useState('');
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = useState<Status[]>([]);
+  const [editing, setEditing] = useState<Note|null>(null);
+  const [theme, setTheme] = useState<'light'|'dark'>(()=> (localStorage.getItem('yadarm_theme')==='dark' ? 'dark' : 'light'));
+  const searchRef = useRef<HTMLInputElement|null>(null);
+
+  async function loadAll(){
+    const { data: t } = await supabase.from('tags').select('*').order('created_at', { ascending: false });
+    setTags(t || []);
+    const { data: n } = await supabase.from('notes').select('*').order('created_at', { ascending: false });
+    setNotes(n || []);
+  }
+  useEffect(()=>{ loadAll(); },[]);
+
+  // theme
+  useEffect(()=>{
+    if(theme==='dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    localStorage.setItem('yadarm_theme', theme);
+  },[theme]);
+
+  const tagMap = useMemo(()=>Object.fromEntries(tags.map(t=>[t.id, t])),[tags]);
+  const visibleNotes = useMemo(()=>{
     const q = query.trim().toLowerCase();
-    return notes
-      .filter(n => (!q || n.text.toLowerCase().includes(q)))
-      .filter(n => (!filterTagIds.length || filterTagIds.every(id => n.tag_ids.includes(id))))
-      .filter(n => (!filterStatuses.length || filterStatuses.includes(n.status)));
+    return notes.filter(n => {
+      const textOk = !q || (n.text||'').toLowerCase().includes(q);
+      const tagsOk = !filterTagIds.length || (n.tag_ids||[]).some(id => filterTagIds.includes(id));
+      const statusOk = !filterStatuses.length || filterStatuses.includes(n.status);
+      return textOk && tagsOk && statusOk;
+    });
   }, [notes, query, filterTagIds, filterStatuses]);
 
-  async function addNote() {
+  // add note form state
+  const [draftText, setDraftText] = useState('');
+  const [draftStatus, setDraftStatus] = useState<Status>('action');
+  const [draftTagName, setDraftTagName] = useState('');
+  const [draftTagColor, setDraftTagColor] = useState('#3b82f6');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement|null>(null);
+
+  function toggleTagSelection(id: string){
+    setSelectedTagIds(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+  }
+
+  async function addTag(){
+    const name = draftTagName.trim();
+    if(!name) return;
+    const exists = tags.find(t => t.name === name);
+    if(exists){ if(!selectedTagIds.includes(exists.id)) setSelectedTagIds([...selectedTagIds, exists.id]); setDraftTagName(''); return; }
+    const { data, error } = await supabase.from('tags').insert({ name, color: draftTagColor }).select().single();
+    if(!error && data){ setTags([data, ...tags]); setSelectedTagIds([...selectedTagIds, data.id]); setDraftTagName(''); }
+  }
+
+  async function addNote(){
     const text = draftText.trim();
-    if (!text || !userId) return;
-    const { data, error } = await supabase.from('notes').insert({ user_id: userId, text, tag_ids: quickTagIds, status: draftStatus }).select('*').single();
-    if (!error && data) {
-      setNotes(prev => [{ id: data.id, text: data.text, tag_ids: data.tag_ids, created_at: data.created_at, status: data.status }, ...prev]);
-      // Stay on Add tab (requested), clear fields && keep focus
-      setDraftText(""); setQuickTagIds([]); setDraftStatus("action");
+    if(!text) return;
+    const { data, error } = await supabase.from('notes').insert({ text, status: draftStatus, tag_ids: selectedTagIds }).select().single();
+    if(!error && data){
+      setNotes([data, ...notes]);
+      // stay on page "add" per requirement
+      setDraftText(''); setSelectedTagIds([]);
       textareaRef.current?.focus();
     }
   }
-  async function removeNote(id: string) {
-    await supabase.from('notes').delete().eq('id', id);
-    setNotes(prev => prev.filter(n => n.id !== id));
+
+  async function removeNote(id: string){
+    const { error } = await supabase.from('notes').delete().eq('id', id);
+    if(!error) setNotes(prev => prev.filter(n=>n.id!==id));
   }
-  async function updateNote(id: string, patch: Partial<NoteRow>) {
-    const payload: any = {};
-    if (patch.text !== undefined) payload.text = patch.text;
-    if (patch.status !== undefined) payload.status = patch.status;
-    if (patch.tag_ids !== undefined) payload.tag_ids = patch.tag_ids;
-    const { data } = await supabase.from('notes').update(payload).eq('id', id).select('*').single();
-    if (data) setNotes(prev => prev.map(n => n.id === id ? { ...n, ...data } : n));
-  }
-  async function addTag(name: string, color: string) {
-    name = name.trim(); if (!name || !userId) return;
-    const exists = tags.find(t => t.name.toLowerCase() === name.toLowerCase());
-    if (exists) { setQuickTagIds(p => (p.includes(exists.id) ? p : [...p, exists.id])); return; }
-    const { data } = await supabase.from('tags').insert({ user_id: userId, name, color }).select('*').single();
-    if (data) { setTags(prev => [...prev, { id: data.id, name: data.name, color: data.color }]); setQuickTagIds(p => [...p, data.id]); }
-  }
-  async function updateTagColor(id: string, color: string) {
-    const { data } = await supabase.from('tags').update({ color }).eq('id', id).select('*').single();
-    if (data) setTags(prev => prev.map(t => t.id === id ? { ...t, color: data.color } : t));
+  async function updateNote(id: string, patch: Partial<Note>){
+    const { data, error } = await supabase.from('notes').update(patch).eq('id', id).select().single();
+    if(!error && data) setNotes(prev => prev.map(n=> n.id===id ? data : n));
   }
 
-  function clearFilters() { setQuery(""); setFilterTagIds([]); setFilterStatuses([]); searchRef.current?.focus(); }
-  function cycleStatus(s: StatusType): StatusType { const i = STATUS_ORDER.indexOf(s); return STATUS_ORDER[(i+1)%STATUS_ORDER.length]; }
-  function cycleTheme(){ setTheme(prev => prev === 'dark' ? 'light' : 'dark'); }
+  async function updateTagColor(id: string, color: string){
+    const { data, error } = await supabase.from('tags').update({ color }).eq('id', id).select().single();
+    if(!error && data) setTags(prev => prev.map(t=> t.id===id ? data : t));
+  }
+  async function deleteTag(id: string){
+    // remove tag from notes first
+    const affected = notes.filter(n => (n.tag_ids||[]).includes(id));
+    for (const n of affected){
+      const nextIds = (n.tag_ids||[]).filter(x=>x!==id);
+      await supabase.from('notes').update({ tag_ids: nextIds }).eq('id', n.id);
+    }
+    await supabase.from('tags').delete().eq('id', id);
+    setTags(prev => prev.filter(t=>t.id!==id));
+    setNotes(prev => prev.map(n => ({ ...n, tag_ids: (n.tag_ids||[]).filter(x=>x!==id) })));
+  }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "enter") { e.preventDefault(); addNote(); }
-      if (e.key === "/") {
-        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-        if (tag !== "input" && tag !== "textarea") { e.preventDefault(); searchRef.current?.focus(); }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [draftText, quickTagIds, draftStatus]);
+  function clearFilters(){ setQuery(''); setFilterTagIds([]); setFilterStatuses([]); searchRef.current?.focus(); }
 
+  // ---- UI
   return (
-    <div className="min-h-screen overflow-x-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100" dir="rtl">
-      <header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 dark:bg-neutral-900/90 border-b border-neutral-200 dark:border-neutral-800">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100" dir="rtl">
+      {/* Header */}
+      <header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 dark:bg-neutral-900/80 border-b border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="Yadarm" className="h-9 w-9 rounded-2xl border shadow bg-white p-1 dark:bg-neutral-800 dark:border-neutral-700"/>
+            <div className="h-9 w-9 rounded-2xl bg-neutral-900 text-white grid place-items-center shadow">
+              <img src="/favicon.svg" className="h-5 w-5" />
+            </div>
             <div>
               <h1 className="text-lg font-semibold tracking-tight">Yadarm</h1>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">یادداشت آرمین</p>
+              <p className="text-xs text-neutral-500">یادداشت آرمین</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={cycleTheme} className="h-10 px-3 rounded-xl border bg-white hover:bg-neutral-50 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:border-neutral-700">{theme==='dark'?<Sun className="h-4 w-4"/>:<Moon className="h-4 w-4"/>}</button>
+            <button onClick={()=>setTheme(t=> t==='dark'?'light':'dark')} className="h-10 w-10 grid place-items-center rounded-xl border border-neutral-200 dark:border-neutral-700">
+              {theme==='dark'? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>}
+            </button>
+            <button onClick={async()=>{ await supabase.auth.signOut(); location.reload(); }} className="hidden sm:inline-flex items-center gap-2 h-10 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700">
+              <LogOut className="h-4 w-4"/> خروج
+            </button>
           </div>
         </div>
       </header>
 
+      {/* Content */}
       <main className="mx-auto max-w-6xl px-3 sm:px-4 pb-28 pt-4 sm:pt-6 grid gap-4 sm:gap-6">
-        {tab === "add" && (
-          <section className="grid gap-3">
-            <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-2"><span className="text-sm sm:text-base font-medium">نوشتن یادداشت</span><kbd className="text-xs text-neutral-400">Ctrl/⌘ + Enter</kbd></div>
-              <textarea ref={textareaRef} dir="rtl" className="w-full resize-y rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 min-h-[140px] text-right" placeholder="متن یادداشت را بنویسید..." value={draftText} onChange={(e)=>setDraftText(e.target.value)} />
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 flex-wrap justify-end"><span className="text-sm text-neutral-600">وضعیت:</span> <StatusSegment value={draftStatus} onChange={setDraftStatus} /></div>
-                <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
-
-                  <QuickTags tags={tags} selectedIds={quickTagIds} onToggle={(id)=>setQuickTagIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])} onAdd={(name,color)=>addTag(name,color)} />
-                  <button onClick={addNote} className="inline-flex items-center gap-2 px-3 sm:px-4 h-10 sm:h-11 rounded-2xl bg-neutral-900 text-white hover:opacity-90 dark:bg-white dark:text-neutral-900">
-                    <Plus className="h-4 w-4" /> ثبت یادداشت
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {tab === "notes" && (
+        {/* NOTES / دفترچه */}
+        {tab==='notes' && (
           <>
+            {/* Filters box */}
             <section className="grid gap-3">
-              <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-2"><Filter className="h-4 w-4" /><span className="text-sm font-medium">جستجو و فیلتر</span></div>
-                <div className="grid gap-2">
-                  <div className="group relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 pointer-events-none" />
-                    <input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="برای جستجو تایپ کنید (کلید / )" className="w-full pl-9 pr-3 h-12 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:h-16 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 text-right text-base" />
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter className="h-4 w-4"/><span className="text-sm font-medium">فیلتر و جستجو</span>
+                </div>
+
+                {/* Search + view inside filter row */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 transition-all">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400"/>
+                    <input
+                      ref={searchRef}
+                      value={query}
+                      onChange={e=>setQuery(e.target.value)}
+                      placeholder="جستجو"
+                      className="w-full pl-9 pr-3 h-11 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 text-right"
+                    />
                   </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap gap-2">
-                      {(['action','plan','done'] as StatusType[]).map(s => (
-                        <label key={s} className="inline-flex items-center gap-2 select-none text-sm text-neutral-600 dark:text-neutral-300">
-                          <input type="checkbox" className="accent-black" checked={filterStatuses.includes(s)} onChange={e=>setFilterStatuses(prev => (e.target.checked ? [...prev, s] : prev.filter(x => x !== s)))} />
-                          <span>{STATUS_LABEL[s]}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <ViewToggle view={view} setView={setView} />
-                  </div>
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {tags.map(t => (
-                      <label key={t.id} className="inline-flex items-center gap-2 select-none text-sm">
-                        <input type="checkbox" className="accent-black" checked={filterTagIds.includes(t.id)} onChange={e=>setFilterTagIds(prev => (e.target.checked ? [...prev, t.id] : prev.filter(x => x !== t.id)))} />
-                        <ColorDot color={t.color} /><span>{t.name}</span>
-                      </label>
-                    ))}
-                    {!!(query || filterTagIds.length || filterStatuses.length) && (
-                      <button onClick={clearFilters} className="ml-auto text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white"><X className="h-4 w-4 inline mr-1" /> پاک کردن</button>
-                    )}
-                  </div>
+                  <ViewToggle view={view} setView={setView} />
+                </div>
+
+                {/* Tag filters with collapse after 8 */}
+                <TagsFilter tags={tags} selected={filterTagIds} onChange={setFilterTagIds} />
+
+                {/* Status filters (grey text only) */}
+                <div className="mt-2 flex flex-wrap gap-2 justify-end">
+                  {STATUS_ORDER.map(s => {
+                    const active = filterStatuses.includes(s);
+                    return (
+                      <button key={s} onClick={()=>{
+                        setFilterStatuses(prev => active ? prev.filter(x=>x!==s) : [...prev, s]);
+                      }} className={`px-3 h-9 rounded-xl border text-sm ${active?'bg-neutral-100 dark:bg-neutral-800':''}`}>
+                        {STATUS_LABEL[s]}
+                      </button>
+                    );
+                  })}
+                  {(query || filterTagIds.length || filterStatuses.length) ? (
+                    <button onClick={clearFilters} className="ml-auto text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white"><X className="h-4 w-4 inline mr-1"/> پاک کردن فیلترها</button>
+                  ) : null}
                 </div>
               </div>
             </section>
 
-            <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm">
-              <div className="p-3 sm:p-4 flex items-center justify-between"><div className="text-sm sm:text-base font-medium">یادداشت‌ها</div></div>
-              <div className="p-3 sm:p-4">
-                {view === "cards" && (<CardView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
-                {view === "list" && (<ListView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
-                {visibleNotes.length === 0 && (<EmptyState />)}
+            {/* Notes list/card */}
+            <section className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm sm:text-base font-medium">یادداشت‌ها</div>
               </div>
+
+              {view==='cards' ? (
+                <CardView notes={visibleNotes} tagMap={tagMap} onRemove={removeNote} onEdit={setEditing} />
+              ) : (
+                <ListView notes={visibleNotes} tagMap={tagMap} onRemove={removeNote} onEdit={setEditing} />
+              )}
+
+              {visibleNotes.length=== 0 && (
+                <div className="py-16 text-center text-neutral-400">
+                  هنوز یادداشتی مطابق فیلترها وجود ندارد.
+                  <div className="mt-2 text-xs">یک یادداشت جدید بسازید یا فیلترها را پاک کنید.</div>
+                </div>
+              )}
             </section>
           </>
         )}
 
-        {tab === "settings" && (
-          <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
-            <div className="flex items-center gap-2 mb-2"><Settings className="h-4 w-4" /><span className="text-sm font-medium">تنظیمات</span></div>
-            <div className="grid gap-6">
-              <div className="grid gap-2">
-                <h3 className="text-sm font-medium">تغییر رمز عبور</h3>
-                <ChangePassword />
+        {/* ADD / بنویس */}
+        {tab==='add' && (
+          <section className="grid gap-3">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
+              {/* Status on top */}
+              <div className="mb-2 text-right">
+                <label className="text-sm font-medium mr-1">وضعیت:</label>
+                <StatusSelect value={draftStatus} onChange={setDraftStatus} />
               </div>
-              <div className="grid gap-2">
-                <h3 className="text-sm font-medium">مدیریت تگ‌ها</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {tags.map(t => (
-                    <div key={t.id} className="flex items-center gap-2 border rounded-xl p-2 justify-between border-neutral-200 dark:border-neutral-700">
-                      <div className="flex items-center gap-2"><ColorDot color={t.color} /><span className="text-sm" title={t.name}>{t.name}</span></div>
-                      <input type="color" value={t.color} onChange={e=>updateTagColor(t.id, e.target.value)} className="h-8 w-12 p-0 border rounded bg-transparent" title="انتخاب رنگ" />
-                    </div>
-                  ))}
+
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
+                dir="rtl"
+                className="w-full resize-y rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 min-h-[160px] text-right bg-white dark:bg-neutral-900"
+                placeholder="متن یادداشت را بنویسید..."
+                value={draftText}
+                onChange={e=>setDraftText(e.target.value)}
+              />
+
+              {/* Selected tags (visually attached to textarea) */}
+              <div className="mt-2 -mb-1 text-right">
+                <span className="text-sm text-neutral-500">تگ‌ها:</span>
+                <div className="mt-1 flex flex-wrap gap-2 justify-end">
+                  {(selectedTagIds||[]).map(id => {
+                    const t = tagMap[id]; if(!t) return null;
+                    return (
+                      <span key={id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700">
+                        <span className="inline-block h-3 w-3 rounded-full" style={{backgroundColor: t.color}}/>
+                        {t.name}
+                        <button onClick={()=>toggleTagSelection(id)} className="text-neutral-400 hover:text-red-600"><X className="h-3 w-3"/></button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Actions row: submit right, add-tag left */}
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button onClick={addNote} className="inline-flex items-center gap-2 px-4 h-11 rounded-2xl bg-neutral-900 text-white hover:opacity-90">
+                  <Plus className="h-4 w-4" /> ثبت یادداشت
+                </button>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  <input value={draftTagName} onChange={e=>setDraftTagName(e.target.value)} placeholder="تگ جدید" className="h-11 px-2 w-32 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-right"/>
+                  <input type="color" value={draftTagColor} onChange={e=>setDraftTagColor(e.target.value)} className="h-11 w-12 p-0 rounded"/>
+                  <button onClick={addTag} className="h-11 px-3 rounded-xl border border-neutral-200 dark:border-neutral-700">افزودن تگ</button>
+                </div>
+              </div>
+
+              {/* Existing tags to pick (right-aligned like status) */}
+              <div className="mt-3 text-right">
+                <div className="text-sm font-medium mb-2">تگ‌ها:</div>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {tags.map(t => {
+                    const active = selectedTagIds.includes(t.id);
+                    return (
+                      <button key={t.id} onClick={()=>toggleTagSelection(t.id)} className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${active ? 'ring-2 ring-offset-1 ring-neutral-900 dark:ring-white' : ''}`} style={{ borderColor: t.color }}>
+                        <span className="inline-block h-3 w-3 rounded-full" style={{backgroundColor: t.color}}/>
+                        {t.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </section>
         )}
+
+        {/* SETTINGS / تنظیمات */}
+        {tab==='settings' && (
+          <SettingsPage
+            tags={tags}
+            onUpdateTagColor={updateTagColor}
+            onDeleteTag={deleteTag}
+            onReload={loadAll}
+          />
+        )}
       </main>
 
+      {/* Edit Modal */}
       {editing && (
         <EditModal
           note={editing}
           allTags={tags}
-          onClose={() => setEditing(null)}
-          onSave={(patch) => { updateNote(editing.id, patch); setEditing(null); }}
+          onClose={()=>setEditing(null)}
+          onSave={async (patch) => { await updateNote(editing.id, patch as any); setEditing(null); }}
         />
       )}
 
+      {/* Bottom Navigation - island */}
       <div className="fixed inset-x-0 bottom-4 z-20 pointer-events-none">
         <nav className="pointer-events-auto mx-auto w-[min(calc(100%-32px),560px)]">
-          <div className="rounded-[20px] shadow-lg border bg-white dark:bg-neutral-800 dark:border-neutral-700 px-2 py-2 grid grid-cols-3 gap-2 items-center justify-center mx-auto">
-            <NavBtn active={tab === "notes"} onClick={()=>setTab("notes")} icon={<StickyNote className="h-5 w-5" />} label="دفترچه" />
-            <NavBtn active={tab === "add"} onClick={()=>setTab("add")} icon={<Plus className="h-5 w-5" />} label="بنویس" />
-            <NavBtn active={tab === "settings"} onClick={()=>setTab("settings")} icon={<Settings className="h-5 w-5" />} label="تنظیمات" />
+          <div className="rounded-[20px] shadow-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-2 py-2 grid grid-cols-3 gap-2 items-center justify-center mx-auto">
+            <NavBtn active={tab==='notes'} onClick={()=>setTab('notes')} icon={<List className="h-5 w-5" />} label="دفترچه" />
+            <NavBtn active={tab==='add'} onClick={()=>setTab('add')} icon={<Plus className="h-5 w-5" />} label="بنویس" />
+            <NavBtn active={tab==='settings'} onClick={()=>setTab('settings')} icon={<Settings className="h-5 w-5" />} label="تنظیمات" />
           </div>
         </nav>
       </div>
@@ -261,15 +330,17 @@ export default function App() {
   );
 }
 
-function ViewToggle({ view, setView }: { view: "cards"|"list"; setView: (v: any)=>void }) {
+// ---- UI Pieces
+
+function ViewToggle({ view, setView }:{ view:'cards'|'list'; setView:(v:any)=>void }){
   const opts = [
-    { id: "cards", label: "کارت", icon: <LayoutGrid className="h-4 w-4" /> },
-    { id: "list", label: "لیست", icon: <List className="h-4 w-4" /> },
+    { id:'cards', label:'کارت', icon:<LayoutGrid className="h-4 w-4" /> },
+    { id:'list', label:'لیست', icon:<List className="h-4 w-4" /> },
   ];
   return (
     <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-2xl p-1 flex items-center shadow-sm">
       {opts.map(o => (
-        <button key={o.id} className={`px-3 h-10 rounded-xl text-sm inline-flex items-center gap-1 ${view === o.id ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-800"}`} onClick={() => setView(o.id as any)}>
+        <button key={o.id} className={`px-3 h-10 rounded-xl text-sm inline-flex items-center gap-1 ${view===o.id ? "bg-neutral-900 text-white" : "hover:bg-neutral-100 dark:hover:bg-neutral-800"}`} onClick={()=>setView(o.id as any)}>
           {o.icon}{o.label}
         </button>
       ))}
@@ -277,14 +348,45 @@ function ViewToggle({ view, setView }: { view: "cards"|"list"; setView: (v: any)
   );
 }
 
-function StatusSegment({ value, onChange }:{ value: StatusType; onChange: (v: StatusType)=>void }) {
+function TagsFilter({ tags, selected, onChange }:{ tags:Tag[]; selected:string[]; onChange:(ids:string[])=>void; }){
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? tags : tags.slice(0, 8);
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap gap-2 justify-end">
+        {shown.map(t => {
+          const active = selected.includes(t.id);
+          return (
+            <label key={t.id} className="inline-flex items-center gap-2 select-none text-sm">
+              <input type="checkbox" className="accent-black" checked={active} onChange={e=> onChange(e.target.checked ? [...selected, t.id] : selected.filter(x=>x!==t.id))} />
+              <span className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10" style={{backgroundColor:t.color}}/>
+              <span>{t.name}</span>
+            </label>
+          );
+        })}
+      </div>
+      {tags.length>8 && !expanded && (
+        <div className="mt-2 text-right">
+          <button onClick={()=>setExpanded(true)} className="text-sm underline">نمایش همهٔ تگ‌ها</button>
+        </div>
+      )}
+      {expanded && (
+        <div className="mt-2 text-right">
+          <button onClick={()=>setExpanded(false)} className="text-sm underline">نمایش کمتر</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusSelect({ value, onChange }:{ value:Status; onChange:(s:Status)=>void }){
   return (
     <div className="inline-flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-2xl p-1">
-      {(['action','plan','done'] as StatusType[]).map(s => {
-        const active = value === s;
+      {(['action','plan','done'] as Status[]).map(s => {
+        const active = value===s;
         return (
-          <button key={s} onClick={()=>onChange(s)} className={`px-3 h-9 rounded-xl text-sm ${active ? "bg-white dark:bg-neutral-900 shadow-sm" : "hover:bg-white/70 dark:hover:bg-neutral-700/50"} text-neutral-600 dark:text-neutral-300`}>
-            {({action:'اکشن',plan:'پلن',done:'اتمام'} as any)[s]}
+          <button key={s} onClick={()=>onChange(s)} className={`px-3 h-9 rounded-xl text-sm ${active ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white ring-2 ring-neutral-200 dark:ring-neutral-700" : "hover:bg-white/70 dark:hover:bg-neutral-700"}`}>
+            {statusLabel(s)}
           </button>
         );
       })}
@@ -292,142 +394,78 @@ function StatusSegment({ value, onChange }:{ value: StatusType; onChange: (v: St
   );
 }
 
-function QuickTags({ tags, selectedIds, onToggle, onAdd }:{ tags: TagType[]; selectedIds: string[]; onToggle: (id: string)=>void; onAdd: (name: string, color: string)=>void; }) {
-  const [newTag, setNewTag] = useState("");
-  const [color, setColor] = useState("#64748b");
-  return (
-    <div className="flex flex-wrap items-center gap-2 justify-end">
-      {tags.map(t => (
-        <button key={t.id} onClick={() => onToggle(t.id)} className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${selectedIds.includes(t.id) ? "ring-2 ring-offset-1 ring-neutral-900 dark:ring-white" : ""}`} style={{ borderColor: t.color }} title={`تگ: ${t.name}`}>
-          <ColorDot color={t.color} />{t.name}
-        </button>
-      ))}
-      <div className="flex items-center gap-2 border border-neutral-200 dark:border-neutral-700 rounded-xl p-1">
-        <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { onAdd(newTag, color); setNewTag(""); } }} placeholder="تگ جدید" className="h-9 px-2 w-28 focus:outline-none text-right bg-transparent" />
-        <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-9 w-9 p-0 rounded bg-transparent" title="انتخاب رنگ" />
-        <button onClick={() => { onAdd(newTag, color); setNewTag(""); }} className="h-9 px-2 rounded-md bg-neutral-900 text-white text-sm dark:bg-white dark:text-neutral-900" title="افزودن تگ">افزودن</button>
-      </div>
-    </div>
-  );
-}
+function statusLabel(s: Status){ return ({action:'اکشن', plan:'پلن', done:'اتمام'} as const)[s]; }
 
-function CardView({ notes, tagMap, onRemove, onEdit, onCycleStatus }:{ notes: NoteRow[]; tagMap: Record<string, TagType>; onRemove: (id: string)=>void; onEdit: (n: NoteRow)=>void; onCycleStatus: (id: string)=>void; }) {
+function NavBtn({ active, onClick, icon, label }:{ active:boolean; onClick:()=>void; icon:React.ReactNode; label:string; }){
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3`}> 
-      {notes.map(n => (
-        <div key={n.id} className="rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 bg-white dark:bg-neutral-900">
-          <div className="flex items-start justify-between gap-3">
-            <span className="text-xs text-neutral-400">{new Date(n.created_at).toLocaleString("fa-IR")}</span>
-            <div className="flex items-center gap-3">
-              <StatusLabel status={n.status} onClick={()=>onCycleStatus(n.id)} />
-              <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={() => onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
-              <button className="text-neutral-400 hover:text-red-600" onClick={() => onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <p className={`mt-2 whitespace-pre-wrap text-base leading-7 text-right`}>{n.text}</p>
-          <div className="mt-3 flex flex-wrap gap-2 justify-end">
-            {n.tag_ids.map(id => tagMap[id]).filter(Boolean).map(t => (
-              <span key={t.id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs" style={{ borderColor: t.color }}><ColorDot color={t.color} />{t.name}</span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ListView({ notes, tagMap, onRemove, onEdit, onCycleStatus }:{ notes: NoteRow[]; tagMap: Record<string, TagType>; onRemove: (id: string)=>void; onEdit: (n: NoteRow)=>void; onCycleStatus: (id: string)=>void; }) {
-  return (
-    <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-      {notes.map(n => (
-        <div key={n.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 py-3`}>
-          <div className="sm:w-40 text-xs text-neutral-400">{new Date(n.created_at).toLocaleString("fa-IR")}</div>
-          <div className="flex-1 whitespace-pre-wrap text-right">{n.text}</div>
-          <div className="flex items-center gap-3 ml-auto">
-            <StatusLabel status={n.status} onClick={()=>onCycleStatus(n.id)} />
-            <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={() => onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
-            <button className="text-neutral-400 hover:text-red-600" onClick={() => onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
-          </div>
-          <div className="flex flex-wrap gap-2 justify-end">
-            {n.tag_ids.map(id => tagMap[id]).filter(Boolean).map(t => (
-              <span key={t.id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs" style={{ borderColor: t.color }}><ColorDot color={t.color} />{t.name}</span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="py-16 text-center text-neutral-400">هنوز یادداشتی مطابق فیلترها وجود ندارد.<div className="mt-2 text-xs">یک یادداشت جدید بسازید یا فیلترها را پاک کنید.</div></div>
-  );
-}
-
-function ColorDot({ color }:{ color: string }) { return <span className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color }} />; }
-
-function NavBtn({ active, onClick, icon, label }:{ active: boolean; onClick: ()=>void; icon: React.ReactNode; label: string; }) {
-  return (
-    <button onClick={onClick} className={`h-12 rounded-xl flex items-center justify-center gap-2 text-sm ${active ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800"} border border-neutral-200 dark:border-neutral-700`}>
+    <button onClick={onClick} className={`h-12 rounded-xl flex items-center justify-center gap-2 text-sm ${active ? "bg-neutral-900 text-white" : "bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800"}`}>
       {icon}<span>{label}</span>
     </button>
   );
 }
 
-function EmojiPicker({ onPick }:{ onPick: (e: string)=>void; }) {
-  const [open, setOpen] = useState(false);
-  const EMOJIS = ["😀","😄","😁","😊","😍","🤩","😎","🤔","😇","😴","😅","😢","🔥","✨","✅","📌","📝","⚡","🚀","💡"];
+function CardView({ notes, tagMap, onRemove, onEdit }:{ notes:Note[]; tagMap:Record<string, Tag>; onRemove:(id:string)=>void; onEdit:(n:Note)=>void; }){
   return (
-    <div className="relative">
-      <button onClick={()=>setOpen(o=>!o)} className="px-2 h-10 rounded-xl border inline-flex items-center gap-2 dark:border-neutral-700"><Smile className="h-4 w-4"/> ایموجی</button>
-      {open && (
-        <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow p-2 grid grid-cols-10 gap-1 z-10">
-          {EMOJIS.map(e => (
-            <button key={e} className="h-8 w-8 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-lg" onClick={()=>{ onPick(e); setOpen(False); }}>{e}</button>
-          ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {notes.map(n => (
+        <div key={n.id} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 bg-white dark:bg-neutral-900">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-xs text-neutral-400">{formatDate(n.created_at)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-600 dark:text-neutral-300">{statusLabel(n.status)}</span>
+              <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={()=>onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
+              <button className="text-neutral-400 hover:text-red-600" onClick={()=>onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-right line-clamp-3">{n.text}</p>
+          <div className="mt-3 flex flex-wrap gap-2 justify-end">
+            {(n.tag_ids||[]).map(id => {
+              const t = tagMap[id]; if(!t) return null;
+              return <span key={id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs border-neutral-200 dark:border-neutral-700"><span className="inline-block h-3 w-3 rounded-full" style={{backgroundColor:t.color}}/> {t.name}</span>;
+            })}
+          </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-function insertAtCursor(ref: React.RefObject<HTMLTextAreaElement>, text: string, setValue: (v: string)=>void) {
-  const el = ref.current; if (!el) return;
-  const start = el.selectionStart ?? el.value.length;
-  const end = el.selectionEnd ?? el.value.length;
-  const value = el.value;
-  const next = value.slice(0, start) + text + value.slice(end);
-  setValue(next);
-  requestAnimationFrame(() => { el.focus(); const pos = start + text.length; el.setSelectionRange(pos, pos); });
-}
-
-function defaultTags(): TagType[] { return [ { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), name: "ایده", color: "#64748b" }, { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), name: "کارها", color: "#64748b" }, { id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), name: "شخصی", color: "#64748b" }, ]; }
-
-function StatusLabel({ status, onClick }:{ status: StatusType; onClick?: ()=>void }) {
+function ListView({ notes, tagMap, onRemove, onEdit }:{ notes:Note[]; tagMap:Record<string, Tag>; onRemove:(id:string)=>void; onEdit:(n:Note)=>void; }){
   return (
-    <button onClick={onClick} className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-300 underline-offset-2 hover:underline" title="تغییر سریع وضعیت">
-      {({action:'اکشن',plan:'پلن',done:'اتمام'} as any)[status]}
-    </button>
+    <div className="grid gap-3">
+      {notes.map(n => (
+        <div key={n.id} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 bg-white dark:bg-neutral-900">
+          {/* top row */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-neutral-400">{formatDate(n.created_at)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-600 dark:text-neutral-300">{statusLabel(n.status)}</span>
+              <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" onClick={()=>onEdit(n)} title="ویرایش"><Pencil className="h-4 w-4" /></button>
+              <button className="text-neutral-400 hover:text-red-600" onClick={()=>onRemove(n.id)} title="حذف"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+          {/* first line only */}
+          <div className="mt-2 text-right text-base leading-7">
+            {(n.text||'').split(/\r?\n/)[0]}
+          </div>
+          {/* tags */}
+          <div className="mt-2 flex flex-wrap gap-2 justify-end">
+            {(n.tag_ids||[]).map(id => {
+              const t = tagMap[id]; if(!t) return null;
+              return <span key={id} className="px-2 h-7 inline-flex items-center gap-2 rounded-full border text-xs border-neutral-200 dark:border-neutral-700"><span className="inline-block h-3 w-3 rounded-full" style={{backgroundColor:t.color}}/> {t.name}</span>;
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
-function EditModal({
-  note,
-  allTags,
-  onClose,
-  onSave,
-}: {
-  note: { id: string; text: string; status: StatusType; tag_ids: string[]; created_at: any };
-  allTags: TagType[];
-  onClose: () => void;
-  onSave: (patch: Partial<{ text: string; status: StatusType; tag_ids: string[] }>) => void;
-}) {
-  const [text, setText] = useState(note.text ?? "");
-  const [status, setStatus] = useState<StatusType>(note.status);
-  const [selected, setSelected] = useState<string[]>(note.tag_ids ?? []);
-  const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+function EditModal({ note, allTags, onClose, onSave }:{ note:Note; allTags:Tag[]; onClose:()=>void; onSave:(patch:Partial<Note>)=>void }){
+  const [text, setText] = useState(note.text);
+  const [status, setStatus] = useState<Status>(note.status);
+  const [selected, setSelected] = useState<string[]>(note.tag_ids||[]);
+  const toggle = (id:string) => setSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
 
   return (
     <div className="fixed inset-0 z-30 flex items-end sm:items-center justify-center">
@@ -435,52 +473,25 @@ function EditModal({
       <div className="relative w-full sm:w-[560px] max-h-[90vh] overflow-auto bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm text-neutral-500">ویرایش یادداشت</div>
-          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">
-            <X className="h-5 w-5" />
-          </button>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"><X className="h-5 w-5"/></button>
         </div>
-
         <div className="grid gap-3">
-          <StatusSegment value={status} onChange={setStatus} />
-
-          <textarea
-            dir="rtl"
-            className="w-full min-h-[140px] rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 text-right bg-white dark:bg-neutral-900"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-
-          {/* تگ‌های یادداشت */}
+          <div className="text-right">
+            <label className="text-sm font-medium mr-1">وضعیت:</label>
+            <StatusSelect value={status} onChange={setStatus} />
+          </div>
+          <textarea dir="rtl" className="w-full min-h-[140px] rounded-2xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10 text-right bg-white dark:bg-neutral-900" value={text} onChange={(e)=>setText(e.target.value)} />
           <div className="flex flex-wrap gap-2 justify-end">
-            {allTags.map((t) => {
+            {allTags.map((t)=>{
               const active = selected.includes(t.id);
               return (
-                <div
-                  key={t.id}
-                  className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${
-                    active ? "ring-2 ring-offset-1 ring-neutral-900" : ""
-                  }`}
-                  style={{ borderColor: t.color }}
-                >
-                  {/* انتخاب/لغو تگ برای این یادداشت */}
-                  <button
-                    type="button"
-                    onClick={() => toggle(t.id)}
-                    className="inline-flex items-center gap-2"
-                    title={active ? "برداشتن تگ از یادداشت" : "افزودن تگ به یادداشت"}
-                  >
-                    <ColorDot color={t.color} />
+                <div key={t.id} className={`px-2 h-9 rounded-xl border text-sm inline-flex items-center gap-2 ${active ? "ring-2 ring-offset-1 ring-neutral-900 dark:ring-white" : ""}`} style={{ borderColor: t.color }}>
+                  <button type="button" onClick={()=>toggle(t.id)} className="inline-flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-full" style={{backgroundColor: t.color}}/>
                     {t.name}
                   </button>
-
-                  {/* حذف تگ از همین یادداشت وقتی فعال است */}
                   {active && (
-                    <button
-                      type="button"
-                      onClick={() => toggle(t.id)}
-                      className="text-neutral-400 hover:text-red-600"
-                      title="حذف از این یادداشت"
-                    >
+                    <button type="button" onClick={()=>toggle(t.id)} className="text-neutral-400 hover:text-red-600" title="حذف از این یادداشت">
                       <X className="h-4 w-4" />
                     </button>
                   )}
@@ -489,19 +500,76 @@ function EditModal({
             })}
           </div>
         </div>
-
         <div className="mt-4 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="h-10 px-3 rounded-2xl border">
-            انصراف
-          </button>
-          <button
-            onClick={() => onSave({ text, status, tag_ids: selected })}
-            className="h-10 px-4 rounded-2xl bg-neutral-900 text-white inline-flex items-center gap-2"
-          >
-            <Check className="h-4 w-4" /> ذخیره
-          </button>
+          <button onClick={onClose} className="h-10 px-3 rounded-2xl border border-neutral-200 dark:border-neutral-700">انصراف</button>
+          <button onClick={()=>onSave({ text, status, tag_ids: selected })} className="h-10 px-4 rounded-2xl bg-neutral-900 text-white inline-flex items-center gap-2"><Check className="h-4 w-4"/> ذخیره</button>
         </div>
       </div>
     </div>
+  );
+}
+
+function SettingsPage({ tags, onUpdateTagColor, onDeleteTag, onReload }:{ tags:Tag[]; onUpdateTagColor:(id:string, color:string)=>void; onDeleteTag:(id:string)=>void; onReload:()=>void }){
+  const [pwOpen, setPwOpen] = useState(false);
+  const [newPass, setNewPass] = useState('');
+  const [msg, setMsg] = useState<string|null>(null);
+  const [error, setError] = useState<string|null>(null);
+
+  async function changePassword(e: React.FormEvent){
+    e.preventDefault();
+    setMsg(null); setError(null);
+    if(newPass.length < 6){ setError('رمز باید حداقل ۶ کاراکتر باشد'); return; }
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+    if(error){ setError(error.message); } else { setMsg('رمز عبور با موفقیت تغییر کرد.'); setNewPass(''); }
+  }
+
+  return (
+    <section className="grid gap-3">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm p-3 sm:p-4">
+        <h3 className="font-medium mb-2 text-right">تنظیمات</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Change password card as a button-like panel */}
+          <div className="border rounded-2xl p-3 dark:border-neutral-700">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium">تغییر رمز عبور</div>
+              <button onClick={()=>setPwOpen(o=>!o)} className="text-sm underline">{pwOpen?'بستن':'باز کردن'}</button>
+            </div>
+            {pwOpen && (
+              <form onSubmit={changePassword} className="grid gap-2">
+                <input type="password" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="رمز عبور جدید" className="h-11 px-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-right" />
+                {error && <div className="text-red-600 text-sm text-right">{error}</div>}
+                {msg && <div className="text-green-600 text-sm text-right">{msg}</div>}
+                <div className="flex justify-end">
+                  <button className="h-11 px-4 rounded-2xl bg-neutral-900 text-white">ذخیره</button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Tag management card */}
+          <div className="border rounded-2xl p-3 dark:border-neutral-700">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium">مدیریت تگ‌ها</div>
+              <button onClick={onReload} className="text-sm underline">بازخوانی</button>
+            </div>
+            <div className="grid gap-2 max-h-72 overflow-auto pr-1">
+              {tags.map(t => (
+                <div key={t.id} className="flex items-center justify-between gap-2 border rounded-xl p-2 dark:border-neutral-700">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{backgroundColor: t.color}}></span>
+                    <span className="text-sm">{t.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={t.color} onChange={e=>onUpdateTagColor(t.id, e.target.value)} className="h-9 w-12 p-0 rounded" />
+                    <button onClick={()=>onDeleteTag(t.id)} className="h-9 px-3 rounded-xl border hover:bg-red-50 dark:hover:bg-red-900/20">حذف</button>
+                  </div>
+                </div>
+              ))}
+              {tags.length===0 && <div className="text-sm text-neutral-500 text-right">تگی وجود ندارد.</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

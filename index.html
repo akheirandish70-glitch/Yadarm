@@ -1,20 +1,18 @@
+
 <!doctype html>
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" />
     <title>Yadarm</title>
+    <link rel="preload" href="/fonts/IRANSansWeb.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/IRANSansWeb_Bold.woff2" as="font" type="font/woff2" crossorigin>
     <script>
-      try {
-        const t = localStorage.getItem('mn_theme') || 'light';
-        const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const dark = t === 'dark' || (t === 'system' && prefers);
-        document.documentElement.classList.toggle('dark', dark);
-      } catch {}
+      try{ if(localStorage.getItem('yadarm_theme')==='dark') document.documentElement.classList.add('dark'); }catch(e){}
     </script>
   </head>
-  <body>
+  <body class="font-iransans bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

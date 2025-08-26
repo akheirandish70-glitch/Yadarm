@@ -1,12 +1,16 @@
-# Yadarm (v10) — Auth + Sync
-- Supabase Auth (email/password): ثبت‌نام، ورود، خروج، تغییر رمز (از «تنظیمات»).
-- RLS: هر کاربر فقط داده‌های خودش را می‌بیند؛ داده‌ها بین تمام دستگاه‌ها سینک است.
-- PWA + دارک‌مود.
 
-## راه‌اندازی Supabase
-1) در supabase.com یک پروژه بسازید. از Settings → API مقدار `Project URL` و `Anon Key` را بردارید.
-2) در SQL Editor محتوای فایل `supabase.sql` این ریپو را اجرا کنید تا جدول‌ها و RLS ساخته شوند.
-3) در محیط Vercel (Project → Settings → Environment Variables) دو مقدار زیر را اضافه کنید و Redeploy کنید:
-   - `VITE_SUPABASE_URL` = Project URL
-   - `VITE_SUPABASE_ANON_KEY` = anon key
+# Yadarm (React + Vite + Tailwind + Supabase)
 
+## راه‌اندازی سریع
+1) مقادیر زیر را در Vercel → Settings → Environment Variables بسازید (برای Production و Preview):
+   - `VITE_SUPABASE_URL` = مقدار Project URL از Supabase
+   - `VITE_SUPABASE_ANON_KEY` = مقدار anon key از Supabase (Project Settings → API)
+
+2) Deploy کنید. سپس صفحه را باز کنید → ثبت‌نام (ایمیل/رمز) → وارد شوید.
+
+## نکات
+- نمایش «دفترچه»: حالت کارت/لیست، فیلتر تگ و وضعیت، جستجو (placeholder: «جستجو»).
+- «بنویس»: وضعیت بالای فیلد، دکمه ثبت زیر فیلد سمت راست، افزودن تگ جدید + color picker سمت چپ، تگ‌های انتخاب‌شده زیر فیلد.
+- «تنظیمات»: تغییر رمز عبور + مدیریت تگ‌ها (تغییر رنگ/حذف).
+- ویرایش یادداشت: امکان حذف تگ از یادداشت و ذخیره.
+- همه‌چیز RTL و بهینه برای فارسی.
