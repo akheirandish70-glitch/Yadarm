@@ -86,7 +86,7 @@ export default function App() {
     const { data, error } = await supabase.from('notes').insert({ user_id: userId, text, tag_ids: quickTagIds, status: draftStatus }).select('*').single();
     if (!error && data) {
       setNotes(prev => [{ id: data.id, text: data.text, tag_ids: data.tag_ids, created_at: data.created_at, status: data.status }, ...prev]);
-      // Stay on Add tab (requested), clear fields and keep focus
+      // Stay on Add tab (requested), clear fields && keep focus
       setDraftText(""); setQuickTagIds([]); setDraftStatus("action");
       textareaRef.current?.focus();
     }
@@ -149,7 +149,7 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-3 sm:px-4 pb-28 pt-4 sm:pt-6 grid gap-4 sm:gap-6">
-        {tab === "add" and (
+        {tab === "add" && (
           <section className="grid gap-3">
             <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2"><span className="text-sm sm:text-base font-medium">نوشتن یادداشت</span><kbd className="text-xs text-neutral-400">Ctrl/⌘ + Enter</kbd></div>
@@ -168,7 +168,7 @@ export default function App() {
           </section>
         )}
 
-        {tab === "notes" and (
+        {tab === "notes" && (
           <>
             <section className="grid gap-3">
               <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
@@ -196,7 +196,7 @@ export default function App() {
                         <ColorDot color={t.color} /><span>{t.name}</span>
                       </label>
                     ))}
-                    {!!(query || filterTagIds.length || filterStatuses.length) and (
+                    {!!(query || filterTagIds.length || filterStatuses.length) && (
                       <button onClick={clearFilters} className="ml-auto text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white"><X className="h-4 w-4 inline mr-1" /> پاک کردن</button>
                     )}
                   </div>
@@ -207,15 +207,15 @@ export default function App() {
             <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm">
               <div className="p-3 sm:p-4 flex items-center justify-between"><div className="text-sm sm:text-base font-medium">یادداشت‌ها</div></div>
               <div className="p-3 sm:p-4">
-                {view === "cards" and (<CardView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
-                {view === "list" and (<ListView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
-                {visibleNotes.length === 0 and (<EmptyState />)}
+                {view === "cards" && (<CardView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
+                {view === "list" && (<ListView notes={visibleNotes} tagMap={tagMap} onRemove={(id)=>removeNote(id)} onEdit={setEditing} onCycleStatus={(id)=>{ const s = notes.find(n=>n.id===id)!.status; updateNote(id, { status: cycleStatus(s) }) }} />)}
+                {visibleNotes.length === 0 && (<EmptyState />)}
               </div>
             </section>
           </>
         )}
 
-        {tab === "settings" and (
+        {tab === "settings" && (
           <section className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-3 sm:p-4">
             <div className="flex items-center gap-2 mb-2"><Settings className="h-4 w-4" /><span className="text-sm font-medium">تنظیمات</span></div>
             <div className="grid gap-6">
@@ -239,7 +239,7 @@ export default function App() {
         )}
       </main>
 
-      {editing and (
+      {editing && (
         <EditModal
           note={editing}
           allTags={tags}
@@ -381,7 +381,7 @@ function EmojiPicker({ onPick }:{ onPick: (e: string)=>void; }) {
   return (
     <div className="relative">
       <button onClick={()=>setOpen(o=>!o)} className="px-2 h-10 rounded-xl border inline-flex items-center gap-2 dark:border-neutral-700"><Smile className="h-4 w-4"/> ایموجی</button>
-      {open and (
+      {open && (
         <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow p-2 grid grid-cols-10 gap-1 z-10">
           {EMOJIS.map(e => (
             <button key={e} className="h-8 w-8 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-lg" onClick={()=>{ onPick(e); setOpen(False); }}>{e}</button>
