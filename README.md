@@ -1,16 +1,35 @@
 
-# Yadarm (React + Vite + Tailwind + Supabase)
+# Yadarm — Next.js + Supabase (PWA)
 
-## راه‌اندازی سریع
-1) مقادیر زیر را در Vercel → Settings → Environment Variables بسازید (برای Production و Preview):
-   - `VITE_SUPABASE_URL` = مقدار Project URL از Supabase
-   - `VITE_SUPABASE_ANON_KEY` = مقدار anon key از Supabase (Project Settings → API)
+این پروژه یک اپ PWA برای مدیریت یادداشت‌هاست:
+- Auth با Supabase (ایمیل/رمز)
+- فهرست + جستجو + فیلتر وضعیت
+- ایجاد یادداشت + انتخاب/افزودن تگ
+- تنظیمات: تغییر رمز عبور، حذف تگ‌ها
+- PWA کامل: manifest, service worker, صفحه‌ی آفلاین
 
-2) Deploy کنید. سپس صفحه را باز کنید → ثبت‌نام (ایمیل/رمز) → وارد شوید.
+## راه‌اندازی
+```bash
+npm i
+cp .env.example .env.local  # مقادیر Supabase را وارد کنید
+npm run dev
+```
+### متغیرها
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-## نکات
-- نمایش «دفترچه»: حالت کارت/لیست، فیلتر تگ و وضعیت، جستجو (placeholder: «جستجو»).
-- «بنویس»: وضعیت بالای فیلد، دکمه ثبت زیر فیلد سمت راست، افزودن تگ جدید + color picker سمت چپ، تگ‌های انتخاب‌شده زیر فیلد.
-- «تنظیمات»: تغییر رمز عبور + مدیریت تگ‌ها (تغییر رنگ/حذف).
-- ویرایش یادداشت: امکان حذف تگ از یادداشت و ذخیره.
-- همه‌چیز RTL و بهینه برای فارسی.
+## Supabase
+SQL جداول و RLS در `supabase.sql` موجود است (در تب SQL اجرا کنید).
+
+## دیپلوی در Vercel
+- ریپو GitHub → Import در Vercel
+- Environment Variables: URL/ANON_KEY
+- Build و تمام
+
+## PWA
+- `public/manifest.json`
+- `public/sw.js` (Cache-first برای استاتیک، Network-first برای HTML با fallback به `/offline`)
+- صفحه‌ی `/offline`
+- آیکن‌ها در `public/icons`
+
+> روی HTTPS (مانند Vercel) Service Worker فعال می‌شود.

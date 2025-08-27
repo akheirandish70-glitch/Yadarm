@@ -1,12 +1,10 @@
 
 /** @type {import('tailwindcss').Config} */
-export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
-  darkMode: 'class',
-  theme: {
-    extend: {
-      fontFamily: { iransans: ['IRANSansX','ui-sans-serif','system-ui'] }
-    }
-  },
-  plugins: [require('@tailwindcss/line-clamp')],
-}
+module.exports = {
+  content: ["./app/**/*.{js,ts,jsx,tsx,mdx}","./components/**/*.{js,ts,jsx,tsx,mdx}"],
+  theme: { extend: {
+    colors: { brand: { DEFAULT: "#000000" } },
+    fontFamily: { sans: ['var(--font-vazirmatn)','ui-sans-serif','system-ui','sans-serif'] }
+  }},
+  plugins: [],
+};
